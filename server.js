@@ -38,6 +38,72 @@ app.get('/api/weather', async (req, res) => {
     }
 });
 
+app.get('/cultivos-get', async (req, res) => {
+    try {
+        // Consulta SQL para obtener todos los cultivos
+        const query = 'SELECT * FROM Cultivo;';
+        
+        // Ejecutar la consulta
+        const result = await pool.query(query);
+        
+        // Enviar los resultados como respuesta
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener cultivos:', error);
+        res.status(500).json({ error: 'Hubo un problema al obtener los cultivos.' });
+    }
+});
+
+app.delete('/cultivos-delete/:idCultivo', async (req, res) => {
+    const { idCultivo } = req.params;
+
+    try {
+        // Consulta SQL para eliminar un cultivo
+        const query = 'DELETE FROM Cultivo WHERE idCultivo = $1 RETURNING *;';
+        
+        // Ejecutar la consulta
+        const result = await pool.query(query, [idCultivo]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Cultivo no encontrado.' });
+        }
+
+        // Enviar una respuesta confirmando la eliminación
+        res.status(200).json({ message: 'Cultivo eliminado exitosamente.' });
+    } catch (error) {
+        console.error('Error al eliminar cultivo:', error);
+        res.status(500).json({ error: 'Hubo un problema al eliminar el cultivo.' });
+    }
+});
+
+app.post('/cultivos-post', async (req, res) => {
+    const { nombre, direccion, ciudad, pais, tipoCultivo, tamano, metodoRiego, frecuenciaRiego } = req.body;
+
+    // Validar los datos
+    if (!nombre || !tipoCultivo || !tamano || !metodoRiego || !frecuenciaRiego) {
+        return res.status(400).json({ error: 'Por favor, complete todos los campos obligatorios.' });
+    }
+
+    try {
+        // Consulta SQL para insertar los datos
+        const query = `
+            INSERT INTO Cultivo (nombre, direccion, ciudad, pais, tipoCultivo, tamano, metodoRiego, frecuenciaRiego)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *;
+        `;
+        const values = [nombre, direccion, ciudad, pais, tipoCultivo, tamano, metodoRiego, frecuenciaRiego];
+
+        // Ejecutar la consulta
+        const result = await pool.query(query, values);
+
+        // Enviar una respuesta con los datos insertados
+        res.status(201).json({ message: 'Cultivo guardado exitosamente.', cultivo: result.rows[0] });
+    } catch (error) {
+        console.error('Error al insertar cultivo:', error);
+        res.status(500).json({ error: 'Hubo un problema al guardar el cultivo.' });
+    }
+});
+
 app.use(express.json());
 
 app.get('/', (req, res) => {
@@ -70,7 +136,7 @@ async function getCropSuggestion(weatherData) {
                 { role: "system", content: "You are a helpful assistant." },
                 { role: "user", content: prompt }
             ],
-            model: "gpt-4o-mini",
+            model: "gpt-3.5-turbo-0125",
         });
 
         console.log('OpenAI Response:', completion.choices[0]);
